@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useState } from "react";
 import { Play, Square, X } from "lucide-react";
 import { formatHM, parseHours } from "@/lib/time";
-import type { TimeEntry } from "@/lib/types";
+import { entryTypeId, workTypesOf, type TimeEntry, type WorkType } from "@/lib/types";
 import { ProjectPicker } from "./ProjectPicker";
 import { useStore } from "./StoreProvider";
 
@@ -15,7 +15,7 @@ import { useStore } from "./StoreProvider";
  *  - "add":   "Add time" for a past session.
  */
 export type DialogRequest =
-  | { mode: "start"; preset?: { projectId?: string | null; description?: string } }
+  | { mode: "start"; preset?: { projectId?: string | null; description?: string; typeId?: string } }
   | { mode: "stop"; entry: TimeEntry }
   | { mode: "edit"; entry: TimeEntry }
   | { mode: "add" };
@@ -46,7 +46,8 @@ const combine = (date: string, time: string) => (date && time ? new Date(`${date
 const minutesToHours = (m: number) => (m / 60).toFixed(2).replace(/\.?0+$/, "");
 
 function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void }) {
-  const { projectById, updateProject, startTimer, addEntry, updateEntry, deleteEntries } = useStore();
+  const { data, projectById, updateProject, startTimer, addEntry, updateEntry, deleteEntries } = useStore();
+  const types = workTypesOf(data);
   const now = new Date();
   const entry = "entry" in req ? req.entry : undefined;
   const preset = req.mode === "start" ? req.preset : undefined;
@@ -57,7 +58,12 @@ function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void
 
   const [projectId, setProjectId] = useState<string | null>(initialProject);
   const [activity, setActivity] = useState(entry?.description ?? preset?.description ?? "");
-  const [billable, setBillable] = useState<boolean>(entry?.billable ?? projectById(initialProject)?.billable ?? false);
+  const [typeId, setTypeId] = useState<string>(entry ? entryTypeId(entry) : preset?.typeId ?? types[0]?.id ?? entryTypeId({}));
+  const billableFor = (t: WorkType | undefined, pid: string | null) =>
+    t?.billable === "yes" ? true : t?.billable === "no" ? false : projectById(pid)?.billable ?? false;
+  const [billable, setBillable] = useState<boolean>(
+    entry?.billable ?? billableFor(types.find((t) => t.id === typeId), initialProject),
+  );
   const [date, setDate] = useState(toDate(initialStart));
   const [start, setStart] = useState(toTime(initialStart));
   const [end, setEnd] = useState(initialEnd ? toTime(initialEnd) : "");
@@ -102,9 +108,14 @@ function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void
   };
   const onProject = (id: string | null) => {
     setProjectId(id);
-    const p = projectById(id);
-    if (p?.billable !== undefined && !entry) setBillable(p.billable);
+    if (!entry) setBillable(billableFor(types.find((t) => t.id === typeId), id));
   };
+  // Picking a type is a deliberate choice, so it sets Billable even when editing.
+  const onType = (t: WorkType) => {
+    setTypeId(t.id);
+    setBillable(billableFor(t, projectId));
+  };
+  const currentType = types.find((t) => t.id === typeId);
 
   // What pressing the main button will do.
   const live = !end && (req.mode === "start" || (req.mode === "edit" && entry?.end === null));
@@ -122,7 +133,7 @@ function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void
 
   const save = () => {
     if (error || !startD) return;
-    const fields = { projectId, description: activity.trim(), billable };
+    const fields = { projectId, typeId, description: activity.trim(), billable };
     if (req.mode === "start" && live) startTimer({ ...fields, start: startD.toISOString() });
     else if (req.mode === "start" || req.mode === "add") addEntry({ ...fields, start: startD.toISOString(), end: endD!.toISOString() });
     else updateEntry(entry!.id, { ...fields, start: startD.toISOString(), end: live ? null : endD!.toISOString() });
@@ -173,6 +184,34 @@ function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void
               onChange={(e) => setActivity(e.target.value)}
               autoFocus
             />
+          </Field>
+
+          <Field label="Type of work">
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Type of work">
+              {types.map((t) => {
+                const on = t.id === typeId;
+                return (
+                  <button
+                    type="button"
+                    key={t.id}
+                    role="radio"
+                    aria-checked={on}
+                    title={t.hint}
+                    onClick={() => onType(t)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${
+                      on ? "border-transparent bg-text text-surface" : "border-border text-text hover:bg-surface-2"
+                    }`}
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
+                    {t.name}
+                  </button>
+                );
+              })}
+              {!currentType && (
+                <span className="rounded-full border border-dashed border-border px-3 py-1 text-sm text-muted">Removed type</span>
+              )}
+            </div>
+            {currentType?.hint && <p className="mt-1.5 font-normal">{currentType.hint}</p>}
           </Field>
 
           <Field label="Billable">

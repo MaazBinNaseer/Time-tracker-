@@ -6,7 +6,8 @@ import { useEntryDialog } from "@/components/EntryDialog";
 import { BillableBadge, CodeBadge } from "@/components/ProjectPicker";
 import { useNow, useStore } from "@/components/StoreProvider";
 import { dayKey, formatClock, formatDayLabel, formatHM, formatTime, rollupByDay, startOfWeek, type ProjectDay } from "@/lib/time";
-import { NO_PROJECT_COLOR, type TimeEntry } from "@/lib/types";
+import { TypeTag } from "@/components/TypeTag";
+import { entryTypeId, NO_PROJECT_COLOR, workTypesOf, type TimeEntry } from "@/lib/types";
 
 const PAGE = 14;
 
@@ -74,7 +75,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function ProjectDayRow({ row, onEdit }: { row: ProjectDay; onEdit: (e: TimeEntry) => void }) {
-  const { projectById, deleteEntries } = useStore();
+  const { data, projectById, deleteEntries } = useStore();
+  const types = workTypesOf(data);
+  const typeOf = (e: TimeEntry) => types.find((t) => t.id === entryTypeId(e));
+  const rowTypes = [...new Set(row.sessions.map((s) => entryTypeId(s.entry)))];
   const openDialog = useEntryDialog();
   const [open, setOpen] = useState(false);
   const project = projectById(row.projectId);
@@ -93,6 +97,7 @@ function ProjectDayRow({ row, onEdit }: { row: ProjectDay; onEdit: (e: TimeEntry
                 {project?.name ?? "No project"}
               </span>
               <CodeBadge code={project?.code} />
+              {rowTypes.map((id) => <span key={id} className="hidden sm:inline-flex"><TypeTag type={types.find((t) => t.id === id)} /></span>)}
               {row.billableMs > 0 && <BillableBadge partial={row.billableMs < row.ms} />}
               {row.running && <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-500">Running</span>}
             </div>
@@ -107,7 +112,7 @@ function ProjectDayRow({ row, onEdit }: { row: ProjectDay; onEdit: (e: TimeEntry
         <button
           className="btn-ghost p-2 opacity-60 group-hover:opacity-100"
           title="Continue this project"
-          onClick={() => openDialog({ mode: "start", preset: { projectId: row.projectId, description: row.sessions[0]?.entry.description ?? "" } })}
+          onClick={() => openDialog({ mode: "start", preset: { projectId: row.projectId, description: row.sessions[0]?.entry.description ?? "", typeId: row.sessions[0]?.entry.typeId } })}
         >
           <Play size={16} />
         </button>
@@ -121,6 +126,7 @@ function ProjectDayRow({ row, onEdit }: { row: ProjectDay; onEdit: (e: TimeEntry
                 {formatTime(s.start)} – {s.entry.end === null ? "now" : formatTime(s.end)}
               </span>
               <span className="min-w-0 flex-1 truncate">{s.entry.description || <span className="text-muted">No description</span>}</span>
+              <TypeTag type={typeOf(s.entry)} />
               {s.entry.billable && <BillableBadge />}
               <span className="tabular w-16 text-right">{formatHM(s.ms)}</span>
               <button className="btn-ghost p-1.5 opacity-0 group-hover/s:opacity-100 max-md:opacity-100" title="Edit" onClick={() => onEdit(s.entry)}>

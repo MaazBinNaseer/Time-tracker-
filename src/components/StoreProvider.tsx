@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { detectStorage, logout, type SessionUser, type StorageAdapter } from "@/lib/storage";
 import { mergeData, sameContent, stampChanges } from "@/lib/merge";
 import { FolderReconnect, LoginScreen } from "./LoginScreen";
-import { emptyData, PROJECT_COLORS, type AppData, type Project, type Settings, type TimeEntry } from "@/lib/types";
+import { emptyData, PROJECT_COLORS, type AppData, type Project, type Settings, type TimeEntry, type WorkType } from "@/lib/types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -18,7 +18,7 @@ interface Store {
   saveState: SaveState;
   running: TimeEntry | null;
   projectById: (id: string | null) => Project | undefined;
-  startTimer: (fields: Pick<TimeEntry, "projectId" | "description" | "billable"> & { start?: string }) => void;
+  startTimer: (fields: Pick<TimeEntry, "projectId" | "description" | "billable" | "typeId"> & { start?: string }) => void;
   stopTimer: () => void;
   updateRunning: (patch: Partial<Pick<TimeEntry, "projectId" | "description" | "start" | "billable">>) => void;
   addEntry: (e: Omit<TimeEntry, "id">) => void;
@@ -31,6 +31,8 @@ interface Store {
   /** Add many projects and sessions in one change (used by the importer). */
   bulkAdd: (projects: Project[], entries: TimeEntry[]) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  /** Replace the list of work types (Settings > Types of work). */
+  setWorkTypes: (types: WorkType[]) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -221,6 +223,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return { ...d, projects: [...updated, ...added], entries: [...d.entries, ...entries] };
         }),
       updateSettings: (patch) => mutate((d) => ({ ...d, settings: { ...d.settings, ...patch } })),
+      setWorkTypes: (workTypes) => mutate((d) => ({ ...d, workTypes })),
     };
   }, [data, ready, adapter, user, saveState, running, mutate]);
 

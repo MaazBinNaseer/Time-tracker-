@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useNow, useStore } from "@/components/StoreProvider";
 import { ProjectDot } from "@/components/ProjectPicker";
-import { addDays, formatHM, formatHours, parseDayKey, rangeStats, startOfDay, startOfWeek } from "@/lib/time";
-import { NO_PROJECT_COLOR } from "@/lib/types";
+import { addDays, dayKey, formatHM, formatHours, parseDayKey, rangeStats, startOfDay, startOfWeek, toSegments } from "@/lib/time";
+import { entryTypeId, NO_PROJECT_COLOR, workTypesOf, type AppData, type Project } from "@/lib/types";
 
 type RangeKey = "week" | "7d" | "30d" | "month";
 const RANGES: { key: RangeKey; label: string }[] = [
@@ -65,7 +65,7 @@ export default function DashboardPage() {
       return row;
     });
     const activeDays = daily.filter((d) => (d.total as number) > 0).length;
-    const hours = stats.byHour.map((ms, h) => ({ h, label: `${h}:00`, hours: ms / 3_600_000 }));
+    const hours = stats.byHour.map((ms, h) => ({ h, hours: ms / 3_600_000 }));
     return { stats, series, daily, activeDays, hours, ranked };
   }, [data.entries, range, now, projectById]);
 
@@ -172,20 +172,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <div className="card p-5 lg:col-span-2">
-              <ChartHeader title="When you work" subtitle="Hours tracked by time of day" />
-              <div className="mt-3 h-48">
-                <ResponsiveContainer>
-                  <BarChart data={hours} margin={{ top: 8, right: 0, left: -18, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
-                    <XAxis dataKey="h" tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} tickFormatter={(h) => (h % 3 === 0 ? `${h}:00` : "")} interval={0} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--muted)", fontSize: 12 }} tickFormatter={(v) => `${v}h`} />
-                    <Tooltip cursor={{ fill: "var(--surface-2)" }} content={<HourTooltip />} />
-                    <Bar dataKey="hours" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            <TypeHeatmap data={data} days={stats.days} now={now} projects={data.projects} />
             <div className="card p-5">
               <ChartHeader title="Daily totals" subtitle="One line per day, all projects combined" />
               <ul className="mt-3 max-h-56 space-y-1 overflow-y-auto pr-1 text-sm">
@@ -274,14 +261,129 @@ function PieTooltip({ active, payload, total }: any) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function HourTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null;
-  const { h, hours } = payload[0].payload;
+// ---- Type of work heatmap ------------------------------------------------------------------
+
+const ALL = "__all";
+const NONE = "__none";
+// Fixed hour bands (not relative to the busiest day), so a colour means the same thing whatever
+// range or project is picked. One hue, light to dark.
+const LEVELS = [
+  { upTo: 1, mix: 32, label: "under 1h" },
+  { upTo: 3, mix: 50, label: "1–3h" },
+  { upTo: 5, mix: 74, label: "3–5h" },
+  { upTo: Infinity, mix: 100, label: "5h+" },
+];
+const cellColor = (ms: number) => {
+  if (ms <= 0) return "var(--surface-2)";
+  const level = LEVELS.find((l) => ms / 3_600_000 <= l.upTo)!;
+  return `color-mix(in oklab, var(--accent) ${level.mix}%, var(--surface-2))`;
+};
+
+/**
+ * Rows are types of work, columns are the days of the chosen range; a square gets darker the more
+ * hours went into that type that day. The project menu narrows it to one project.
+ */
+function TypeHeatmap({ data, days, now, projects }: { data: AppData; days: string[]; now: Date; projects: Project[] }) {
+  const [project, setProject] = useState<string>(ALL);
+  const [hover, setHover] = useState<{ type: string; day: string; ms: number } | null>(null);
+  const types = workTypesOf(data);
+
+  const rows = useMemo(() => {
+    const first = days[0];
+    const last = days[days.length - 1];
+    const wanted = (pid: string | null) => project === ALL || (project === NONE ? pid === null : pid === project);
+    const byType = new Map<string, Map<string, number>>();
+    for (const seg of toSegments(data.entries, now)) {
+      if (seg.day < first || seg.day > last || !wanted(seg.entry.projectId)) continue;
+      const tid = entryTypeId(seg.entry);
+      let row = byType.get(tid);
+      if (!row) byType.set(tid, (row = new Map()));
+      row.set(seg.day, (row.get(seg.day) ?? 0) + seg.ms);
+    }
+    const known = types.filter((t) => byType.has(t.id)).map((t) => ({ id: t.id, name: t.name, color: t.color, cells: byType.get(t.id)! }));
+    // Sessions whose type was removed in Settings still count, in one row.
+    const removed = new Map<string, number>();
+    for (const [tid, cells] of byType) {
+      if (types.some((t) => t.id === tid)) continue;
+      for (const [day, ms] of cells) removed.set(day, (removed.get(day) ?? 0) + ms);
+    }
+    if (removed.size) known.push({ id: "__removed", name: "Removed type", color: NO_PROJECT_COLOR, cells: removed });
+    return known.map((r) => ({ ...r, total: [...r.cells.values()].reduce((a, b) => a + b, 0) }));
+  }, [data.entries, days, now, project, types]);
+
+  const used = new Set(data.entries.map((e) => e.projectId));
+  const options = projects.filter((p) => !p.archived || used.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+  const today = dayKey(now);
+  const wide = days.length > 7;
+  const label = (day: string) => parseDayKey(day).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+
   return (
-    <div className={tipClass}>
-      <div className="font-semibold">{h}:00 – {h + 1}:00</div>
-      <div className="tabular text-muted">{formatHM(hours * 3_600_000)}</div>
+    <div className="card p-5 lg:col-span-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ChartHeader title="Type of work" subtitle="Hours per day for each type. Darker means more time." />
+        <select className="input max-w-[220px] py-1.5 text-sm" value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project">
+          <option value={ALL}>All projects</option>
+          <option value={NONE}>No project</option>
+          {options.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}{p.code ? ` (${p.code})` : ""}</option>
+          ))}
+        </select>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="mt-6 py-8 text-center text-sm text-muted">No time on this project in this period.</p>
+      ) : (
+        <div
+          className="mt-4 grid items-center gap-[2px]"
+          style={{ gridTemplateColumns: `max-content repeat(${days.length}, minmax(6px, 1fr)) max-content` }}
+          onMouseLeave={() => setHover(null)}
+        >
+          <span />
+          {days.map((day) => {
+            const d = parseDayKey(day);
+            const show = !wide || d.getDay() === 1 || day === days[0];
+            return (
+              <span key={day} className={`h-5 overflow-visible whitespace-nowrap text-[11px] ${day === today ? "font-semibold text-text" : "text-muted"}`}>
+                {show ? d.toLocaleDateString([], wide ? { day: "numeric", month: "short" } : { weekday: "short", day: "numeric" }) : ""}
+              </span>
+            );
+          })}
+          <span className="pl-3 text-right text-[11px] text-muted">Total</span>
+          {rows.map((r) => (
+            <Fragment key={r.id}>
+              <span className="flex items-center gap-1.5 whitespace-nowrap pr-3 text-sm"><ProjectDot color={r.color} size={8} />{r.name}</span>
+              {days.map((day) => {
+                const ms = r.cells.get(day) ?? 0;
+                const on = hover?.type === r.name && hover.day === day;
+                return (
+                  <span
+                    key={day}
+                    className="h-7 rounded"
+                    style={{ background: cellColor(ms), outline: on ? "2px solid var(--text)" : undefined, outlineOffset: -1 }}
+                    title={`${r.name} · ${label(day)} · ${ms ? formatHM(ms) : "nothing"}`}
+                    onMouseEnter={() => setHover({ type: r.name, day, ms })}
+                  />
+                );
+              })}
+              <span className="tabular whitespace-nowrap pl-3 text-right text-sm font-medium">{formatHM(r.total)}</span>
+            </Fragment>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+        <span className="min-h-4">
+          {hover ? <><span className="font-medium text-text">{hover.type}</span> · {label(hover.day)} · {hover.ms ? formatHM(hover.ms) : "nothing tracked"}</> : "Hover a square for the exact time."}
+        </span>
+        <span className="flex items-center gap-1.5">
+          {LEVELS.map((l) => (
+            <span key={l.label} className="flex items-center gap-1">
+              <span className="h-3 w-3 rounded-sm" style={{ background: `color-mix(in oklab, var(--accent) ${l.mix}%, var(--surface-2))` }} />
+              {l.label}
+            </span>
+          ))}
+        </span>
+      </div>
     </div>
   );
 }

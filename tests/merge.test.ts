@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mergeData, stampChanges } from "../src/lib/merge.ts";
-import type { AppData, TimeEntry } from "../src/lib/types.ts";
+import { DEFAULT_WORK_TYPES, type AppData, type TimeEntry } from "../src/lib/types.ts";
 
 const base = (): AppData => ({ version: 1, projects: [], entries: [], updatedAt: "2026-10-13T08:00:00.000Z" });
 const entry = (id: string, start: string, end: string | null, desc = id): TimeEntry => ({
@@ -38,4 +38,26 @@ test("two running timers: the later one keeps running, the earlier stops when it
   const merged = mergeData(tabA, tabB);
   assert.equal(merged.entries.find((e) => e.id === "b")!.end, null);
   assert.equal(merged.entries.find((e) => e.id === "a")!.end, t(10));
+});
+
+test("work type edits from two windows combine, and a removed starter type stays removed", () => {
+  const start = base(); // still on the starter list
+  // Window A removes "Leave"; window B renames "Fieldwork" and adds "Lab work".
+  const tabA = stampChanges(start, { ...start, workTypes: DEFAULT_WORK_TYPES.filter((t) => t.id !== "type-leave") }, new Date(t(10)));
+  const tabB = stampChanges(start, {
+    ...start,
+    workTypes: [
+      ...DEFAULT_WORK_TYPES.map((x) => (x.id === "type-field" ? { ...x, name: "Field work" } : x)),
+      { id: "type-lab", name: "Lab work", color: "#000000", billable: "project" as const },
+    ],
+  }, new Date(t(11)));
+  const merged = mergeData(tabA, tabB);
+  const names = merged.workTypes!.map((x) => x.name);
+  assert.ok(!names.includes("Leave / Time off"));
+  assert.ok(names.includes("Field work") && !names.includes("Fieldwork"));
+  assert.ok(names.includes("Lab work"));
+});
+
+test("data without a type list keeps none after merging", () => {
+  assert.equal(mergeData(base(), base()).workTypes, undefined);
 });

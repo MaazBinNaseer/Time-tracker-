@@ -1,4 +1,5 @@
-import type { AppData, Project, TimeEntry } from "./types";
+// ".ts" so the tests can run this file with plain Node.
+import { DEFAULT_WORK_TYPES, type AppData, type Project, type TimeEntry, type WorkType } from "./types.ts";
 
 /**
  * Combining two versions of the same person's data, e.g. when the app is open in two tabs or on
@@ -29,6 +30,11 @@ export function mergeData(a: AppData, b: AppData, now = new Date()): AppData {
 
   const projects = mergeList<Project>(a.projects, b.projects, deleted);
   let entries = mergeList<TimeEntry>(a.entries, b.entries, deleted);
+  // A side that never edited its type list is still using the starter list.
+  const workTypes =
+    a.workTypes || b.workTypes
+      ? mergeList<WorkType>(a.workTypes ?? DEFAULT_WORK_TYPES, b.workTypes ?? DEFAULT_WORK_TYPES, deleted)
+      : undefined;
 
   // Only one timer may run. If both windows started one, the later start wins and the earlier
   // one is stopped at the moment the later one began.
@@ -45,6 +51,7 @@ export function mergeData(a: AppData, b: AppData, now = new Date()): AppData {
     version: 1,
     projects,
     entries,
+    ...(workTypes && { workTypes }),
     deleted: pruneTombstones(deleted, now),
     settings: newer.settings,
     updatedAt: now.toISOString(),
@@ -76,6 +83,9 @@ export function stampChanges(prev: AppData, next: AppData, now = new Date()): Ap
     ...next,
     projects: stamp(prev.projects, next.projects),
     entries: stamp(prev.entries, next.entries),
+    // The first edit turns the starter list into your own list; compare against it so removing a
+    // starter type is remembered as a delete.
+    ...(next.workTypes && { workTypes: stamp(prev.workTypes ?? DEFAULT_WORK_TYPES, next.workTypes) }),
     deleted: pruneTombstones(deleted, now),
     updatedAt: at,
   };
@@ -84,7 +94,7 @@ export function stampChanges(prev: AppData, next: AppData, now = new Date()): Ap
 /** Cheap check for "do these two versions hold the same projects and sessions?" */
 export function sameContent(a: AppData, b: AppData): boolean {
   const sig = (d: AppData) =>
-    [...d.projects, ...d.entries].map((x) => `${x.id}@${x.updatedAt ?? ""}`).sort().join("|") +
+    [...d.projects, ...d.entries, ...(d.workTypes ?? [])].map((x) => `${x.id}@${x.updatedAt ?? ""}`).sort().join("|") +
     "#" + Object.keys(d.deleted ?? {}).sort().join("|") +
     "#" + JSON.stringify(d.settings ?? {});
   return sig(a) === sig(b);

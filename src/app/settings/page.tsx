@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Cloud, Download, FileInput, FileSpreadsheet, FolderOpen, HardDrive, KeyRound, LogOut, Monitor, Sparkles, Trash2, Upload, UserPlus, Users } from "lucide-react";
+import { Cloud, Download, FileInput, FileSpreadsheet, FolderOpen, HardDrive, KeyRound, LogOut, Plus, RotateCcw, Monitor, Sparkles, Trash2, Upload, UserPlus, Users } from "lucide-react";
 import { useStore } from "@/components/StoreProvider";
 import { demoData } from "@/lib/demo";
 import { addUser, changePassword, listUsers, removeUser, resetUserPassword, setUserRole, type SessionUser } from "@/lib/storage";
 import { chooseFolder, folderSupported, leaveFolderMode } from "@/lib/storage/folder";
 import { formatHours, rollupByDay } from "@/lib/time";
-import { emptyData, type AppData } from "@/lib/types";
+import { DEFAULT_WORK_TYPES, emptyData, entryTypeId, PROJECT_COLORS, workTypesOf, type AppData, type WorkType } from "@/lib/types";
+import { uid } from "@/components/StoreProvider";
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -31,11 +32,19 @@ export default function SettingsPage() {
 
   const exportCsv = () => {
     // One row per project per day: the same rolled-up view as the timer page.
-    const rows = [["Date", "Project", "Code", "Client", "Hours", "Billable hours", "Sessions", "Activities"].map(csvCell).join(",")];
+    const rows = [["Date", "Project", "Code", "Client", "Hours", "Billable hours", "Sessions", "Types of work", "Activities"].map(csvCell).join(",")];
+    const types = workTypesOf(data);
+    // "Fieldwork 3.5h; Travel 1h": how the day's hours on this project split by type.
+    const typeSplit = (sessions: { entry: { typeId?: string }; ms: number }[]) => {
+      const by = new Map<string, number>();
+      for (const s of sessions) by.set(entryTypeId(s.entry), (by.get(entryTypeId(s.entry)) ?? 0) + s.ms);
+      return [...by.entries()].sort((x, y) => y[1] - x[1])
+        .map(([id, ms]) => `${types.find((t) => t.id === id)?.name ?? "Removed type"} ${formatHours(ms, 2).replace(/\.?0+$/, "")}h`).join("; ");
+    };
     for (const d of rollupByDay(data.entries.filter((e) => e.end), new Date()).reverse()) {
       for (const p of d.projects) {
         const proj = projectById(p.projectId);
-        rows.push([d.day, proj?.name ?? "No project", proj?.code ?? "", proj?.client ?? "", formatHours(p.ms, 2), formatHours(p.billableMs, 2), p.sessions.length, p.descriptions.join("; ")].map(csvCell).join(","));
+        rows.push([d.day, proj?.name ?? "No project", proj?.code ?? "", proj?.client ?? "", formatHours(p.ms, 2), formatHours(p.billableMs, 2), p.sessions.length, typeSplit(p.sessions), p.descriptions.join("; ")].map(csvCell).join(","));
       }
     }
     download(`tempo-daily-${stamp}.csv`, rows.join("\n"), "text/csv");
@@ -116,6 +125,8 @@ export default function SettingsPage() {
           hours <span className="text-muted">(0 turns the reminder off)</span>
         </label>
       </section>
+
+      <WorkTypesSection />
 
       {user && <AccountSection username={user.username} onSignOut={signOut} />}
       {user?.role === "admin" && <UsersSection me={user.username} />}
@@ -343,5 +354,65 @@ function StorageSwitch({ kind, signedIn, data }: { kind?: string; signedIn: bool
       </button>
       {msg && <p className="mt-2 text-sm text-danger">{msg}</p>}
     </div>
+  );
+}
+
+const BILLABLE_LABEL: Record<WorkType["billable"], string> = { project: "Same as project", yes: "Always billable", no: "Never billable" };
+
+/** Edit the list of work types offered in the entry box. Changes apply to every session using that type. */
+function WorkTypesSection() {
+  const { data, setWorkTypes } = useStore();
+  const types = workTypesOf(data);
+  const used = new Map<string, number>();
+  for (const e of data.entries) used.set(entryTypeId(e), (used.get(entryTypeId(e)) ?? 0) + 1);
+
+  const change = (id: string, patch: Partial<WorkType>) => setWorkTypes(types.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  const remove = (t: WorkType) => {
+    const n = used.get(t.id) ?? 0;
+    if (types.length <= 1) return alert("Keep at least one type.");
+    if (!confirm(n ? `${n} ${n === 1 ? "session uses" : "sessions use"} "${t.name}". They keep their hours but will show as "Removed type". Remove it?` : `Remove "${t.name}"?`)) return;
+    setWorkTypes(types.filter((x) => x.id !== t.id));
+  };
+  const add = () =>
+    setWorkTypes([...types, { id: `type-${uid()}`, name: "New type", color: PROJECT_COLORS[types.length % PROJECT_COLORS.length], billable: "project" }]);
+  const move = (i: number, dir: -1 | 1) => {
+    const next = [...types];
+    [next[i], next[i + dir]] = [next[i + dir], next[i]];
+    setWorkTypes(next);
+  };
+
+  return (
+    <section className="card mt-4 p-5">
+      <h2 className="font-semibold">Types of work</h2>
+      <p className="mt-1 text-sm text-muted">
+        The choices in the entry box, like Fieldwork or Meeting. Renaming a type renames it on every session. The hint shows under the
+        buttons to remind you what belongs there. The first type is picked for new entries.
+      </p>
+      <ul className="mt-3 space-y-2">
+        {types.map((t, i) => (
+          <li key={t.id} className="grid grid-cols-[auto_1fr_auto] items-start gap-2 rounded-xl border border-border p-2 sm:grid-cols-[auto_1fr_1.4fr_auto_auto]">
+            <input type="color" aria-label={`Colour for ${t.name}`} className="mt-1 h-7 w-7 cursor-pointer rounded border-0 bg-transparent p-0" value={t.color} onChange={(e) => change(t.id, { color: e.target.value })} />
+            <input className="input w-full" aria-label="Name" value={t.name} onChange={(e) => change(t.id, { name: e.target.value })} />
+            <input className="input col-span-3 w-full sm:col-span-1" aria-label="Hint" placeholder="Hint, e.g. Site inspection, surveying" value={t.hint ?? ""} onChange={(e) => change(t.id, { hint: e.target.value || undefined })} />
+            <select className="input col-span-2 w-full sm:col-span-1 sm:w-auto" aria-label="Billable" value={t.billable} onChange={(e) => change(t.id, { billable: e.target.value as WorkType["billable"] })}>
+              {Object.entries(BILLABLE_LABEL).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+            <div className="col-start-3 row-start-1 flex items-center sm:col-start-auto sm:row-start-auto">
+              <button className="btn-ghost px-1.5 py-1 text-xs" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</button>
+              <button className="btn-ghost px-1.5 py-1 text-xs" disabled={i === types.length - 1} onClick={() => move(i, 1)} aria-label="Move down">↓</button>
+              <button className="btn-ghost p-1.5 hover:text-danger" onClick={() => remove(t)} aria-label={`Remove ${t.name}`} title="Remove"><Trash2 size={15} /></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button className="btn-outline" onClick={add}><Plus size={16} /> Add a type</button>
+        {data.workTypes && (
+          <button className="btn-ghost" onClick={() => confirm("Go back to the suggested list? Your own types and changes are removed; sessions keep their hours.") && setWorkTypes(DEFAULT_WORK_TYPES)}>
+            <RotateCcw size={15} /> Reset to suggested list
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
