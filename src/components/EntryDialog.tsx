@@ -18,7 +18,7 @@ export type DialogRequest =
   | { mode: "start"; preset?: { projectId?: string | null; description?: string; typeId?: string } }
   | { mode: "stop"; entry: TimeEntry }
   | { mode: "edit"; entry: TimeEntry }
-  | { mode: "add" };
+  | { mode: "add"; preset?: { start: Date; end: Date } };
 
 const Ctx = createContext<(r: DialogRequest) => void>(() => {});
 export const useEntryDialog = () => useContext(Ctx);
@@ -51,9 +51,10 @@ function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void
   const now = new Date();
   const entry = "entry" in req ? req.entry : undefined;
   const preset = req.mode === "start" ? req.preset : undefined;
+  const slot = req.mode === "add" ? req.preset : undefined; // dragged out on the calendar
 
-  const initialStart = entry ? new Date(entry.start) : req.mode === "add" ? new Date(now.getTime() - 3_600_000) : now;
-  const initialEnd = req.mode === "stop" || req.mode === "add" ? now : entry?.end ? new Date(entry.end) : null;
+  const initialStart = entry ? new Date(entry.start) : slot ? slot.start : req.mode === "add" ? new Date(now.getTime() - 3_600_000) : now;
+  const initialEnd = slot ? slot.end : req.mode === "stop" || req.mode === "add" ? now : entry?.end ? new Date(entry.end) : null;
   const initialProject = entry?.projectId ?? preset?.projectId ?? null;
 
   const [projectId, setProjectId] = useState<string | null>(initialProject);
