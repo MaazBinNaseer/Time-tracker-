@@ -1,0 +1,5 @@
+User,Email,Client,Project,Task,Description,Billable,Start date,Start time,End date,End time,Duration,Tags,Amount (USD)
+Sara,sara@example.com,Acme,Website redesign,,Homepage layout,Yes,2026-10-12,09:00:00,2026-10-12,10:30:00,01:30:00,,75.00
+Sara,sara@example.com,Acme,Website redesign,,"Review, with client",Yes,2026-10-12,14:00:00,2026-10-12,14:45:00,00:45:00,,37.50
+Sara,sara@example.com,,Learning,,Next.js course,No,2026-10-12,23:30:00,2026-10-13,00:30:00,01:00:00,,
+Omar,omar@example.com,Acme,Mobile app,,Login screen,Yes,2026-10-12,10:00:00,2026-10-12,12:00:00,02:00:00,,
