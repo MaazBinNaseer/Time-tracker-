@@ -10,6 +10,7 @@ import { chooseFolder, folderSupported, leaveFolderMode } from "@/lib/storage/fo
 import { formatHours, rollupByDay } from "@/lib/time";
 import { DEFAULT_WORK_TYPES, emptyData, entryTypeId, PROJECT_COLORS, workTypesOf, type AppData, type WorkType } from "@/lib/types";
 import { uid } from "@/components/StoreProvider";
+import { getTheme, setTheme, type Theme } from "@/lib/theme";
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -125,6 +126,8 @@ export default function SettingsPage() {
           hours <span className="text-muted">(0 turns the reminder off)</span>
         </label>
       </section>
+
+      <AppearanceSection />
 
       <WorkTypesSection />
 
@@ -412,6 +415,35 @@ function WorkTypesSection() {
             <RotateCcw size={15} /> Reset to suggested list
           </button>
         )}
+      </div>
+    </section>
+  );
+}
+
+/** Light, dark, or follow the computer. Saved in this browser only. */
+function AppearanceSection() {
+  const [theme, setLocal] = useState<Theme>("system");
+  useEffect(() => {
+    const sync = () => setLocal(getTheme());
+    sync();
+    window.addEventListener("tempo:theme", sync);
+    return () => window.removeEventListener("tempo:theme", sync);
+  }, []);
+  const options: [Theme, string][] = [["system", "Match my computer"], ["light", "Light"], ["dark", "Dark"]];
+  return (
+    <section className="card mt-4 p-5">
+      <h2 className="font-semibold">Appearance</h2>
+      <p className="mt-1 text-sm text-muted">The sun/moon button at the top right switches quickly. This choice is remembered on this browser.</p>
+      <div className="mt-3 flex w-max rounded-xl border border-border p-1">
+        {options.map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setTheme(value)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${theme === value ? "bg-accent text-white dark:text-[#140f1f]" : "text-muted hover:text-text"}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </section>
   );

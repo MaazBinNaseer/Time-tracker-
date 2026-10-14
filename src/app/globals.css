@@ -13,10 +13,13 @@
   --danger: #dc2626;
   --sidebar: #1e1530;
   --sidebar-text: #cfc7e6;
+  color-scheme: light;
 }
 
+/* Dark colours: used when the computer is in dark mode (unless the moon/sun button picked light),
+   or when the button picked dark. The button stores its choice as data-theme on <html>. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f0d15;
     --surface: #17141f;
     --surface-2: #201c2b;
@@ -29,6 +32,35 @@
     --danger: #f87171;
     --sidebar: #120e1b;
     --sidebar-text: #b9b0d2;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f0d15;
+  --surface: #17141f;
+  --surface-2: #201c2b;
+  --border: #2c2738;
+  --text: #ece9f5;
+  --muted: #9a94ad;
+  --accent: #a78bfa;
+  --accent-strong: #c4b5fd;
+  --accent-soft: #2a2140;
+  --danger: #f87171;
+  --sidebar: #120e1b;
+  --sidebar-text: #b9b0d2;
+  color-scheme: dark;
+}
+
+/* Tailwind's dark: classes follow the same rule. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
   }
 }
 

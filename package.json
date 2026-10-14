@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --no-warnings --test tests/rollup.test.ts tests/merge.test.ts tests/importer.test.ts"
+    "test": "node --experimental-strip-types --no-warnings --test tests/rollup.test.ts tests/merge.test.ts tests/importer.test.ts tests/timesheet.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.56.0",

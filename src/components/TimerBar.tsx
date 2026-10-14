@@ -5,6 +5,7 @@ import { AlertTriangle, Play, Square } from "lucide-react";
 import { entryDuration, formatClock, formatHM } from "@/lib/time";
 import { useEntryDialog } from "./EntryDialog";
 import { ProjectPicker } from "./ProjectPicker";
+import { ThemeToggle } from "./ThemeToggle";
 import { useNow, useStore } from "./StoreProvider";
 
 export function TimerBar() {
@@ -84,6 +85,7 @@ export function TimerBar() {
         >
           {running ? <Square size={16} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
         </button>
+        <ThemeToggle />
       </div>
       {tooLong && running && (
         <div className="border-t border-amber-500/30 bg-amber-500/10">
