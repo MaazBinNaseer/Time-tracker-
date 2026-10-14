@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f5fa;
+  --surface: #ffffff;
+  --surface-2: #f1eff7;
+  --border: #e6e3ef;
+  --text: #1c1a24;
+  --muted: #6b6780;
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-soft: #ede9fe;
+  --danger: #dc2626;
+  --sidebar: #1e1530;
+  --sidebar-text: #cfc7e6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0d15;
+    --surface: #17141f;
+    --surface-2: #201c2b;
+    --border: #2c2738;
+    --text: #ece9f5;
+    --muted: #9a94ad;
+    --accent: #a78bfa;
+    --accent-strong: #c4b5fd;
+    --accent-soft: #2a2140;
+    --danger: #f87171;
+    --sidebar: #120e1b;
+    --sidebar-text: #b9b0d2;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-text: var(--sidebar-text);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility card {
+  @apply rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(20,10,40,0.04)];
+}
+@utility input {
+  @apply rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-white hover:bg-accent-strong dark:text-[#140f1f];
+}
+@utility btn-ghost {
+  @apply btn text-muted hover:bg-surface-2 hover:text-text;
+}
+@utility btn-outline {
+  @apply btn border border-border bg-surface hover:bg-surface-2;
+}
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
