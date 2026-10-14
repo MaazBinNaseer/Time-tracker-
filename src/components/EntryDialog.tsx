@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useState } from "react";
 import { Play, Square, X } from "lucide-react";
 import { formatHM, parseHours } from "@/lib/time";
 import type { TimeEntry } from "@/lib/types";
@@ -24,12 +24,15 @@ const Ctx = createContext<(r: DialogRequest) => void>(() => {});
 export const useEntryDialog = () => useContext(Ctx);
 
 export function EntryDialogProvider({ children }: { children: React.ReactNode }) {
-  const [req, setReq] = useState<DialogRequest | null>(null);
+  const [open, setOpen] = useState<{ req: DialogRequest; id: number } | null>(null);
+  // Stable for the whole app, so components that use it don't re-render needlessly.
+  const show = useCallback((req: DialogRequest) => setOpen({ req, id: Date.now() }), []);
   return (
-    <Ctx.Provider value={setReq}>
+    <Ctx.Provider value={show}>
       {children}
-      {/* key remounts the form so each opening starts from fresh values */}
-      {req && <EntryDialog key={Date.now()} req={req} onClose={() => setReq(null)} />}
+      {/* The key is fixed when the form opens, so each opening starts fresh but typing (which
+          re-renders the app, e.g. editing the project code) never resets the form or its focus. */}
+      {open && <EntryDialog key={open.id} req={open.req} onClose={() => setOpen(null)} />}
     </Ctx.Provider>
   );
 }
