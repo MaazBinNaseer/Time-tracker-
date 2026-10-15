@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Clock, Cloud, FolderKanban, FolderOpen, HardDrive, Loader2, LogOut, Monitor, Settings } from "lucide-react";
+import { BarChart3, CalendarDays, Clock, Cloud, FileText, FolderKanban, FolderOpen, HardDrive, Loader2, LogOut, Monitor, Settings } from "lucide-react";
 import { useStore } from "./StoreProvider";
 import { EntryDialogProvider } from "./EntryDialog";
 import { TimerBar } from "./TimerBar";
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/", label: "Timer", icon: Clock },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
+  { href: "/reports", label: "Reports", icon: FileText },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -22,7 +23,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar px-3 py-5 text-sidebar-text md:flex">
+      <aside className="sticky top-0 hidden h-screen print:!hidden w-60 shrink-0 flex-col bg-sidebar px-3 py-5 text-sidebar-text md:flex">
         <Link href="/" className="mb-8 flex items-center gap-2.5 px-3">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
             <Clock size={18} strokeWidth={2.5} />
@@ -70,7 +71,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {ready ? (
           <EntryDialogProvider>
             <TimerBar />
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">{children}</main>
+            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 print:max-w-none print:p-0">{children}</main>
           </EntryDialogProvider>
         ) : (
           <div className="grid flex-1 place-items-center text-muted">
@@ -79,7 +80,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex print:hidden border-t border-border bg-surface md:hidden">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? path === "/" : path.startsWith(href);
           return (

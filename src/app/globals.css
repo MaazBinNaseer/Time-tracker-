@@ -108,3 +108,19 @@ body {
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Printing / "Save as PDF": white paper, no app chrome, colour dots kept. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  :root {
+    color-scheme: light !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
