@@ -1,5 +1,6 @@
 "use client";
 
+import { toSummary } from "@/lib/richtext";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Cloud, Download, FileInput, FileSpreadsheet, FolderOpen, HardDrive, KeyRound, LogOut, Plus, RotateCcw, Monitor, Sparkles, Trash2, Upload, UserPlus, Users } from "lucide-react";
@@ -45,7 +46,7 @@ export default function SettingsPage() {
     for (const d of rollupByDay(data.entries.filter((e) => e.end), new Date()).reverse()) {
       for (const p of d.projects) {
         const proj = projectById(p.projectId);
-        rows.push([d.day, proj?.name ?? "No project", proj?.code ?? "", proj?.client ?? "", formatHours(p.ms, 2), formatHours(p.billableMs, 2), p.sessions.length, typeSplit(p.sessions), p.descriptions.join("; ")].map(csvCell).join(","));
+        rows.push([d.day, proj?.name ?? "No project", proj?.code ?? "", proj?.client ?? "", formatHours(p.ms, 2), formatHours(p.billableMs, 2), p.sessions.length, typeSplit(p.sessions), p.descriptions.map(toSummary).join("; ")].map(csvCell).join(","));
       }
     }
     download(`tempo-daily-${stamp}.csv`, rows.join("\n"), "text/csv");

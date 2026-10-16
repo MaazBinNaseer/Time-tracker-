@@ -1,5 +1,6 @@
 "use client";
 
+import { toSummary } from "@/lib/richtext";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Play, Square } from "lucide-react";
 import { entryDuration, formatClock, formatHM } from "@/lib/time";
@@ -60,13 +61,25 @@ export function TimerBar() {
   return (
     <div className="sticky top-0 z-20 border-b border-border bg-surface/90 backdrop-blur print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 md:flex-nowrap md:px-8">
-        <input
-          className="min-w-0 basis-full bg-transparent px-2 py-2 md:flex-1 md:basis-auto text-[15px] outline-none placeholder:text-muted"
-          placeholder="What are you working on?"
-          value={running ? running.description : description}
-          onChange={(e) => (running ? updateRunning({ description: e.target.value }) : setDescription(e.target.value))}
-          onKeyDown={(e) => e.key === "Enter" && !running && toggle()}
-        />
+        {running && running.description.includes("\n") ? (
+          // Several lines (lists, checkboxes) don't fit a one-line box: show a summary, click to edit.
+          <button
+            type="button"
+            className="min-w-0 basis-full truncate px-2 py-2 text-left text-[15px] md:flex-1 md:basis-auto"
+            title="Edit this activity"
+            onClick={() => openDialog({ mode: "edit", entry: running })}
+          >
+            {toSummary(running.description)}
+          </button>
+        ) : (
+          <input
+            className="min-w-0 basis-full bg-transparent px-2 py-2 md:flex-1 md:basis-auto text-[15px] outline-none placeholder:text-muted"
+            placeholder="What are you working on?"
+            value={running ? running.description : description}
+            onChange={(e) => (running ? updateRunning({ description: e.target.value }) : setDescription(e.target.value))}
+            onKeyDown={(e) => e.key === "Enter" && !running && toggle()}
+          />
+        )}
         <ProjectPicker
           value={running ? running.projectId : projectId}
           onChange={(id) => (running ? updateRunning({ projectId: id }) : setProjectId(id))}

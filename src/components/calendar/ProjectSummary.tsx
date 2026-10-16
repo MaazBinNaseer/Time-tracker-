@@ -1,5 +1,6 @@
 "use client";
 
+import { toPlain, toSummary } from "@/lib/richtext";
 import { formatHM } from "@/lib/time";
 import { CodeBadge, ProjectDot } from "../ProjectPicker";
 
@@ -49,7 +50,7 @@ export function ProjectSummary({ title, rows, total, wide = false }: { title: st
                   <ul className="mt-1 space-y-0.5 text-xs">
                     {r.tasks.slice(0, 4).map(([desc, ms]) => (
                       <li key={desc} className="flex justify-between gap-2 pl-4">
-                        <span className="truncate">{desc}</span>
+                        <span className="truncate" title={toPlain(desc)}>{toSummary(desc)}</span>
                         <span className="tabular shrink-0 text-muted">{formatHM(ms)}</span>
                       </li>
                     ))}

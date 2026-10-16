@@ -1,5 +1,6 @@
 "use client";
 
+import { toPlain, toSummary } from "@/lib/richtext";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEntryDialog } from "@/components/EntryDialog";
 import { Kpi } from "@/components/Kpi";
@@ -179,10 +180,10 @@ export function DayView({ day }: { day: Date }) {
                         borderColor: color,
                         background: `color-mix(in srgb, ${color} 18%, var(--surface))`,
                       }}
-                      title={`${p?.name ?? "No project"} · ${s.entry.description}`}
+                      title={`${p?.name ?? "No project"} · ${toPlain(s.entry.description)}`}
                     >
                       <div className="truncate font-semibold">{p?.name ?? "No project"}</div>
-                      {height > 34 && <div className="truncate text-muted">{s.entry.description || "No description"}</div>}
+                      {height > 34 && <div className="truncate text-muted">{toSummary(s.entry.description) || "No description"}</div>}
                       {height > 50 && (
                         <div className="tabular truncate text-muted">
                           {formatTime(s.start)} – {s.entry.end === null ? "now" : formatTime(s.end)} · {formatHM(s.ms)}

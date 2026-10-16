@@ -1,5 +1,6 @@
 "use client";
 
+import { toPlain, toSummary } from "@/lib/richtext";
 import { useMemo, useState } from "react";
 import { ChevronDown, Clock3, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useEntryDialog } from "@/components/EntryDialog";
@@ -84,7 +85,7 @@ function ProjectDayRow({ row, onEdit }: { row: ProjectDay; onEdit: (e: TimeEntry
   const project = projectById(row.projectId);
   const color = project?.color ?? NO_PROJECT_COLOR;
   const n = row.sessions.length;
-  const desc = row.descriptions.length ? row.descriptions.slice(0, 2).join(", ") + (row.descriptions.length > 2 ? ` +${row.descriptions.length - 2}` : "") : "";
+  const desc = row.descriptions.length ? row.descriptions.slice(0, 2).map(toSummary).join(", ") + (row.descriptions.length > 2 ? ` +${row.descriptions.length - 2}` : "") : "";
 
   return (
     <li>
@@ -125,7 +126,7 @@ function ProjectDayRow({ row, onEdit }: { row: ProjectDay; onEdit: (e: TimeEntry
               <span className="tabular shrink-0 whitespace-nowrap text-muted sm:w-40">
                 {formatTime(s.start)} – {s.entry.end === null ? "now" : formatTime(s.end)}
               </span>
-              <span className="min-w-0 flex-1 truncate">{s.entry.description || <span className="text-muted">No description</span>}</span>
+              <span className="min-w-0 flex-1 truncate" title={toPlain(s.entry.description)}>{toSummary(s.entry.description) || <span className="text-muted">No description</span>}</span>
               <TypeTag type={typeOf(s.entry)} />
               {s.entry.billable && <BillableBadge />}
               <span className="tabular w-16 text-right">{formatHM(s.ms)}</span>

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useState } from "react";
 import { Play, Square, X } from "lucide-react";
 import { formatHM, parseHours } from "@/lib/time";
 import { entryTypeId, workTypesOf, type TimeEntry, type WorkType } from "@/lib/types";
+import { ActivityEditor } from "./ActivityEditor";
 import { ProjectPicker } from "./ProjectPicker";
 import { useStore } from "./StoreProvider";
 
@@ -178,13 +179,7 @@ function EntryDialog({ req, onClose }: { req: DialogRequest; onClose: () => void
           </div>
 
           <Field label="Activity">
-            <textarea
-              className="input min-h-[76px] w-full resize-y"
-              placeholder="What are you working on?"
-              value={activity}
-              onChange={(e) => setActivity(e.target.value)}
-              autoFocus
-            />
+            <ActivityEditor value={activity} onChange={setActivity} autoFocus />
           </Field>
 
           <Field label="Type of work">

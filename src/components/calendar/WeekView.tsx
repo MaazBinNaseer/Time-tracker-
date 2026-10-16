@@ -1,5 +1,6 @@
 "use client";
 
+import { toSummary } from "@/lib/richtext";
 import { Fragment, useMemo, useState } from "react";
 import { Check, ChevronDown, Pencil, X } from "lucide-react";
 import { Kpi } from "@/components/Kpi";
@@ -259,7 +260,7 @@ export function WeekView({ from }: { from: Date }) {
                         <ul className="grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
                           {r.tasks.map(([desc, ms]) => (
                             <li key={desc} className="flex items-center gap-3">
-                              <span className="min-w-0 flex-1 truncate">{desc}</span>
+                              <span className="min-w-0 flex-1 truncate">{toSummary(desc)}</span>
                               <span className="h-1.5 w-24 shrink-0 rounded-full bg-surface-2">
                                 <span className="block h-full rounded-full" style={{ width: `${(ms / r.ms) * 100}%`, background: r.color }} />
                               </span>

@@ -1,5 +1,7 @@
 "use client";
 
+import { RichText } from "@/components/RichText";
+import { toPlain } from "@/lib/richtext";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Copy, Printer } from "lucide-react";
 import { useNow, useStore } from "@/components/StoreProvider";
@@ -138,7 +140,7 @@ export default function ReportsPage() {
         for (const s of d.sessions) {
           const when = prefs.times ? `${formatTime(s.start)}–${s.entry.end === null ? "now" : formatTime(s.end)}, ` : "";
           lines.push(`  - [${when}${hours(s.ms)}, ${projectLabel(s.entry.projectId)}, ${typeName(entryTypeId(s.entry))}]`);
-          lines.push(`    ${(s.entry.description.trim() || "No description").replace(/\n/g, "\n    ")}`);
+          lines.push(`    ${(toPlain(s.entry.description) || "No description").replace(/\n/g, "\n    ")}`);
         }
       lines.push("");
     }
@@ -334,9 +336,11 @@ export default function ReportsPage() {
                                 </td>
                                 <td className="py-2 pr-3 leading-relaxed">
                                   {/* Full text wraps across the wide column and keeps your line breaks. */}
-                                  <div className={`whitespace-pre-line break-words ${prefs.text === "short" ? "line-clamp-2" : ""}`}>
-                                    {s.entry.description.trim() || <span className="text-[#5b5670]">No description</span>}
-                                  </div>
+                                  {s.entry.description.trim() ? (
+                                    <RichText text={s.entry.description.trim()} className={prefs.text === "short" ? "line-clamp-2" : ""} />
+                                  ) : (
+                                    <span className="text-[#5b5670]">No description</span>
+                                  )}
                                 </td>
                                 <td className="tabular whitespace-nowrap py-2 text-right font-semibold">{hours(s.ms)}</td>
                               </tr>
