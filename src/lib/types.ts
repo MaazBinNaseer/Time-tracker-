@@ -64,6 +64,8 @@ export interface Settings {
   hoursPerDay?: number;
   /** Mark US federal holidays as days off. */
   federalHolidays?: boolean;
+  /** Federal holidays (by name) your employer doesn't give off. Default: Columbus Day and Veterans Day. */
+  skipFederal?: string[];
   /** Your own days off (company holidays, vacation), as "YYYY-MM-DD". */
   holidays?: { date: string; name: string }[];
 }

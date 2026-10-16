@@ -20,6 +20,15 @@ test("holidays only count when switched on; your own always do", () => {
   assert.equal(holidayOn("2027-12-31", { federalHolidays: true }), "New Year's Day");
 });
 
+test("federal holidays you work are left out", () => {
+  // Veterans Day and Columbus Day are worked by default at private employers.
+  assert.equal(holidayOn("2026-11-11", { federalHolidays: true }), null);
+  assert.equal(holidayOn("2026-10-12", { federalHolidays: true }), null);
+  // Tick them back on, or untick another one.
+  assert.equal(holidayOn("2026-11-11", { federalHolidays: true, skipFederal: [] }), "Veterans Day");
+  assert.equal(holidayOn("2026-06-19", { federalHolidays: true, skipFederal: ["Juneteenth"] }), null);
+});
+
 test("weekends and expected hours", () => {
   assert.equal(dayKind(new Date(2026, 9, 17), {}).kind, "weekend"); // Saturday
   assert.equal(dayKind(new Date(2026, 9, 16), {}).kind, "work");

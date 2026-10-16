@@ -44,6 +44,18 @@ export function federalHolidays(year: number): { date: string; name: string }[] 
   return list.map(([d, name]) => ({ date: dayKey(d), name }));
 }
 
+/**
+ * Private employers don't have to give every federal holiday off. Columbus Day and Veterans Day
+ * are the two most often worked, so they start unticked; each one can be switched in Settings.
+ */
+export const DEFAULT_SKIP_FEDERAL = ["Columbus Day", "Veterans Day"];
+
+/** The federal holidays you actually get off. */
+export function federalDaysOff(year: number, s: Settings | undefined) {
+  const skip = s?.skipFederal ?? DEFAULT_SKIP_FEDERAL;
+  return federalHolidays(year).filter((h) => !skip.includes(h.name));
+}
+
 /** Name of the holiday on this day, or null. Your own holidays win over federal ones. */
 export function holidayOn(day: string, s: Settings | undefined): string | null {
   const own = s?.holidays?.find((h) => h.date === day);
@@ -51,7 +63,7 @@ export function holidayOn(day: string, s: Settings | undefined): string | null {
   if (s?.federalHolidays) {
     const year = Number(day.slice(0, 4));
     // New Year's Day can be observed on 31 December of the year before.
-    const hit = [...federalHolidays(year), ...federalHolidays(year + 1)].find((h) => h.date === day);
+    const hit = [...federalDaysOff(year, s), ...federalDaysOff(year + 1, s)].find((h) => h.date === day);
     if (hit) return hit.name;
   }
   return null;

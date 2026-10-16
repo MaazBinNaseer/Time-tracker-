@@ -12,7 +12,7 @@ import { formatHours, rollupByDay } from "@/lib/time";
 import { DEFAULT_WORK_TYPES, emptyData, entryTypeId, PROJECT_COLORS, workTypesOf, type AppData, type WorkType } from "@/lib/types";
 import { uid } from "@/components/StoreProvider";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
-import { DEFAULT_HOURS_PER_DAY, DEFAULT_WORK_DAYS, federalHolidays } from "@/lib/workdays";
+import { DEFAULT_HOURS_PER_DAY, DEFAULT_SKIP_FEDERAL, DEFAULT_WORK_DAYS, federalHolidays } from "@/lib/workdays";
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -467,6 +467,9 @@ function WorkWeekSection() {
   const year = new Date().getFullYear();
   const pretty = (d: string) => new Date(`${d}T00:00`).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
+  const skip = s.skipFederal ?? DEFAULT_SKIP_FEDERAL;
+  const toggleFederal = (holiday: string) =>
+    updateSettings({ skipFederal: skip.includes(holiday) ? skip.filter((x) => x !== holiday) : [...skip, holiday] });
   const toggleDay = (d: number) =>
     updateSettings({ workDays: workDays.includes(d) ? workDays.filter((x) => x !== d) : [...workDays, d].sort() });
   const add = () => {
@@ -508,16 +511,24 @@ function WorkWeekSection() {
         <input type="checkbox" className="mt-0.5" checked={!!s.federalHolidays} onChange={(e) => updateSettings({ federalHolidays: e.target.checked })} />
         <span>
           <span className="font-medium">US federal holidays are days off</span>
-          <span className="block text-muted">The 11 federal holidays, on the day they are observed (e.g. 4 July on a Saturday is taken Friday). Worked out every year automatically.</span>
+          <span className="block text-muted">On the day they are observed (e.g. 4 July on a Saturday is taken Friday), worked out every year automatically. Private employers don&apos;t have to give all of them, so untick the ones you work.</span>
         </span>
       </label>
       {s.federalHolidays && (
-        <details className="ml-6 mt-1 text-sm">
-          <summary className="cursor-pointer text-accent">See {year}&apos;s dates</summary>
-          <ul className="mt-1.5 grid gap-x-6 gap-y-0.5 text-muted sm:grid-cols-2">
-            {federalHolidays(year).map((h) => <li key={h.date}><span className="tabular text-text">{pretty(h.date)}</span> · {h.name}</li>)}
-          </ul>
-        </details>
+        <ul className="ml-6 mt-2 gap-x-6 text-sm sm:columns-2">
+          {federalHolidays(year).map((h) => {
+            const off = !skip.includes(h.name);
+            return (
+              <li key={h.name} className="mb-1 break-inside-avoid">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={off} onChange={() => toggleFederal(h.name)} aria-label={`${h.name} is a day off`} />
+                  <span className={off ? "" : "text-muted line-through"}>{h.name}</span>
+                  <span className="tabular text-xs text-muted">{pretty(h.date)}</span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       <div className="mt-5 text-sm font-medium">Other days off</div>
