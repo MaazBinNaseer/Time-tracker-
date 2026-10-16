@@ -1,12 +1,13 @@
 "use client";
 
+import { dayKind } from "@/lib/workdays";
 import { toPlain, toSummary } from "@/lib/richtext";
 import { useMemo, useState } from "react";
 import { ChevronDown, Clock3, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useEntryDialog } from "@/components/EntryDialog";
 import { BillableBadge, CodeBadge } from "@/components/ProjectPicker";
 import { useNow, useStore } from "@/components/StoreProvider";
-import { dayKey, formatClock, formatDayLabel, formatHM, formatTime, rollupByDay, startOfWeek, type ProjectDay } from "@/lib/time";
+import { dayKey, formatClock, formatDayLabel, formatHM, formatTime, parseDayKey, rollupByDay, startOfWeek, type ProjectDay } from "@/lib/time";
 import { TypeTag } from "@/components/TypeTag";
 import { entryTypeId, NO_PROJECT_COLOR, workTypesOf, type TimeEntry } from "@/lib/types";
 
@@ -44,7 +45,10 @@ export default function TimerPage() {
           {days.slice(0, shownDays).map((d) => (
             <section key={d.day} className="card overflow-hidden">
               <header className="flex items-center justify-between border-b border-border bg-surface-2/60 px-4 py-2.5 text-sm">
-                <span className="font-semibold">{formatDayLabel(d.day, now)}</span>
+                <span className="flex items-center gap-2 font-semibold">
+                  {formatDayLabel(d.day, now)}
+                  <DayOffTag day={d.day} />
+                </span>
                 <span className="text-muted">
                   Total <span className="tabular ml-1 font-semibold text-text">{formatHM(d.ms)}</span>
                 </span>
@@ -157,5 +161,17 @@ function EmptyState() {
         Type what you are working on in the bar above, pick a project, and press the play button. Your sessions will appear here, grouped per project per day.
       </p>
     </div>
+  );
+}
+
+/** "Holiday: Thanksgiving Day" or "Day off" when time was logged on a non-work day. */
+function DayOffTag({ day }: { day: string }) {
+  const { data } = useStore();
+  const off = dayKind(parseDayKey(day), data.settings);
+  if (off.kind === "work") return null;
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${off.kind === "holiday" ? "bg-accent-soft text-accent" : "bg-surface-2 text-muted"}`}>
+      {off.kind === "holiday" ? `Holiday: ${off.name}` : "Day off"}
+    </span>
   );
 }

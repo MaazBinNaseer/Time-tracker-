@@ -1,5 +1,6 @@
 "use client";
 
+import { dayKind } from "@/lib/workdays";
 import { toPlain, toSummary } from "@/lib/richtext";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEntryDialog } from "@/components/EntryDialog";
@@ -62,6 +63,7 @@ export function DayView({ day }: { day: Date }) {
     scroller.current?.scrollTo({ top: h * HOUR_PX });
   }, [key, first]);
 
+  const dayOff = dayKind(day, data.settings);
   const minutesOf = (d: Date) => (d.getTime() - day.getTime()) / 60000;
 
   // Drag on an empty part of the grid to mark a time span, then the "Add time" form opens with it.
@@ -132,7 +134,11 @@ export function DayView({ day }: { day: Date }) {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="card overflow-hidden">
-          <p className="border-b border-border px-4 py-2 text-xs text-muted">Drag on an empty part of the day to add time. Click a block to edit it.</p>
+          <p className="border-b border-border px-4 py-2 text-xs text-muted">
+            {dayOff.kind === "holiday" && <span className="mr-2 rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent">Holiday: {dayOff.name}</span>}
+            {dayOff.kind === "weekend" && <span className="mr-2 rounded-full bg-surface-2 px-2 py-0.5 font-medium">Day off</span>}
+            Drag on an empty part of the day to add time. Click a block to edit it.
+          </p>
           <div ref={scroller} className="relative h-[620px] overflow-y-auto">
             <div className="relative" style={{ height: 24 * HOUR_PX }}>
               {Array.from({ length: 24 }, (_, h) => (

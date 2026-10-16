@@ -12,6 +12,7 @@ import { formatHours, rollupByDay } from "@/lib/time";
 import { DEFAULT_WORK_TYPES, emptyData, entryTypeId, PROJECT_COLORS, workTypesOf, type AppData, type WorkType } from "@/lib/types";
 import { uid } from "@/components/StoreProvider";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
+import { DEFAULT_HOURS_PER_DAY, DEFAULT_WORK_DAYS, federalHolidays } from "@/lib/workdays";
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -127,6 +128,8 @@ export default function SettingsPage() {
           hours <span className="text-muted">(0 turns the reminder off)</span>
         </label>
       </section>
+
+      <WorkWeekSection />
 
       <AppearanceSection />
 
@@ -446,6 +449,99 @@ function AppearanceSection() {
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const weekdayName = (d: number) => new Date(2026, 9, 11 + d).toLocaleDateString([], { weekday: "short" }); // 11 Oct 2026 is a Sunday
+
+/** Which days you work, normal hours per day, and days off (federal + your own). */
+function WorkWeekSection() {
+  const { data, updateSettings } = useStore();
+  const s = data.settings ?? {};
+  const workDays = s.workDays ?? DEFAULT_WORK_DAYS;
+  const holidays = [...(s.holidays ?? [])].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const [date, setDate] = useState("");
+  const [name, setName] = useState("");
+  const year = new Date().getFullYear();
+  const pretty = (d: string) => new Date(`${d}T00:00`).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+  const toggleDay = (d: number) =>
+    updateSettings({ workDays: workDays.includes(d) ? workDays.filter((x) => x !== d) : [...workDays, d].sort() });
+  const add = () => {
+    if (!date) return;
+    updateSettings({ holidays: [...(s.holidays ?? []).filter((h) => h.date !== date), { date, name: name.trim() || "Day off" }] });
+    setDate("");
+    setName("");
+  };
+
+  return (
+    <section className="card mt-4 p-5">
+      <h2 className="font-semibold">Work week &amp; holidays</h2>
+      <p className="mt-1 text-sm text-muted">
+        Days off are shaded in the calendar and left out of your expected hours. You can still log time on them if you work.
+      </p>
+
+      <div className="mt-4 text-sm font-medium">Work days</div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {WEEKDAY_ORDER.map((d) => {
+          const on = workDays.includes(d);
+          return (
+            <button key={d} onClick={() => toggleDay(d)} aria-pressed={on}
+              className={`w-14 rounded-lg border py-1.5 text-sm font-medium transition ${on ? "border-transparent bg-accent text-white dark:text-[#140f1f]" : "border-border text-muted hover:text-text"}`}>
+              {weekdayName(d)}
+            </button>
+          );
+        })}
+      </div>
+
+      <label className="mt-4 flex items-center gap-2 text-sm">
+        Normal hours per work day
+        <input type="number" min={1} max={24} step={0.5} className="input w-20 py-1.5"
+          value={s.hoursPerDay ?? DEFAULT_HOURS_PER_DAY}
+          onChange={(e) => updateSettings({ hoursPerDay: Math.max(0.5, Math.min(24, Number(e.target.value) || DEFAULT_HOURS_PER_DAY)) })} />
+        <span className="text-muted">({(s.hoursPerDay ?? DEFAULT_HOURS_PER_DAY) * workDays.length}h a week)</span>
+      </label>
+
+      <label className="mt-4 flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-0.5" checked={!!s.federalHolidays} onChange={(e) => updateSettings({ federalHolidays: e.target.checked })} />
+        <span>
+          <span className="font-medium">US federal holidays are days off</span>
+          <span className="block text-muted">The 11 federal holidays, on the day they are observed (e.g. 4 July on a Saturday is taken Friday). Worked out every year automatically.</span>
+        </span>
+      </label>
+      {s.federalHolidays && (
+        <details className="ml-6 mt-1 text-sm">
+          <summary className="cursor-pointer text-accent">See {year}&apos;s dates</summary>
+          <ul className="mt-1.5 grid gap-x-6 gap-y-0.5 text-muted sm:grid-cols-2">
+            {federalHolidays(year).map((h) => <li key={h.date}><span className="tabular text-text">{pretty(h.date)}</span> · {h.name}</li>)}
+          </ul>
+        </details>
+      )}
+
+      <div className="mt-5 text-sm font-medium">Other days off</div>
+      <p className="text-xs text-muted">Company holidays, vacation, sick days. For several days in a row, add each day.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input type="date" className="input py-1.5" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Day off date" />
+        <input className="input w-56 py-1.5" placeholder="Name, e.g. Day after Thanksgiving" value={name} onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()} aria-label="Day off name" />
+        <button className="btn-outline py-1.5" onClick={add} disabled={!date}><Plus size={16} /> Add day off</button>
+      </div>
+      {holidays.length > 0 && (
+        <ul className="mt-3 divide-y divide-border rounded-xl border border-border text-sm">
+          {holidays.map((h) => (
+            <li key={h.date} className="flex items-center gap-3 px-3 py-1.5">
+              <span className="tabular w-36 shrink-0">{pretty(h.date)}</span>
+              <span className="min-w-0 flex-1 truncate">{h.name}</span>
+              <button className="btn-ghost p-1.5 hover:text-danger" aria-label={`Remove ${h.name}`}
+                onClick={() => updateSettings({ holidays: (s.holidays ?? []).filter((x) => x.date !== h.date) })}>
+                <Trash2 size={15} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

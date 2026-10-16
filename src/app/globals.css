@@ -109,6 +109,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Weekends and holidays in the calendar: soft diagonal stripes. */
+.day-off {
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--muted) 9%, transparent) 6px 12px);
+}
+
 /* Printing / "Save as PDF": white paper, no app chrome, colour dots kept. */
 @media print {
   @page {

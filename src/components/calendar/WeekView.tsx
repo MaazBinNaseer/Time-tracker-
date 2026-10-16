@@ -1,5 +1,6 @@
 "use client";
 
+import { dayKind, expected } from "@/lib/workdays";
 import { toSummary } from "@/lib/richtext";
 import { Fragment, useMemo, useState } from "react";
 import { Check, ChevronDown, Pencil, X } from "lucide-react";
@@ -75,6 +76,7 @@ export function WeekView({ from }: { from: Date }) {
   }, [data.entries, from, now, projectById, extra]);
 
   const { stats, rows, dayTotals, maxCell, busiest, prevTotal, running } = view;
+  const weekTarget = expected(from, addDays(from, 7), data.settings);
 
   // ---- editing ----
   const cellKey = (row: string, day: string) => `${row}|${day}`;
@@ -135,7 +137,7 @@ export function WeekView({ from }: { from: Date }) {
   return (
     <div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="Week total" value={formatHM(stats.total)} hint={title} />
+        <Kpi label="Week total" value={formatHM(stats.total)} hint={weekTarget.days ? `of ${formatHM(weekTarget.ms)} expected (${weekTarget.days} work ${weekTarget.days === 1 ? "day" : "days"})` : title} />
         <Kpi label="Projects worked on" value={String(rows.length)} hint={rows.slice(0, 3).map((r) => r.name).join(", ") || "None yet"} />
         <Kpi label="Busiest day" value={dayTotals[busiest] > 0 ? parseDayKey(stats.days[busiest]).toLocaleDateString([], { weekday: "long" }) : "None"} hint={dayTotals[busiest] > 0 ? formatHM(dayTotals[busiest]) : undefined} />
         <Kpi
@@ -175,12 +177,16 @@ export function WeekView({ from }: { from: Date }) {
             <thead>
               <tr className="border-b border-border bg-surface-2/60 text-xs font-medium uppercase tracking-wide text-muted">
                 <th className="px-4 py-2.5 text-left">Project</th>
-                {stats.days.map((d) => (
-                  <th key={d} className={`w-[72px] px-1 py-2.5 text-center ${d === todayKey ? "text-accent" : ""}`}>
-                    <div>{parseDayKey(d).toLocaleDateString([], { weekday: "short" })}</div>
-                    <div className="font-normal normal-case">{parseDayKey(d).getDate()}</div>
-                  </th>
-                ))}
+                {stats.days.map((d) => {
+                  const off = dayKind(parseDayKey(d), data.settings);
+                  return (
+                    <th key={d} title={off.name} className={`w-[72px] px-1 py-2.5 text-center ${d === todayKey ? "text-accent" : off.kind !== "work" ? "opacity-60" : ""}`}>
+                      <div>{parseDayKey(d).toLocaleDateString([], { weekday: "short" })}</div>
+                      <div className="font-normal normal-case">{parseDayKey(d).getDate()}</div>
+                      {off.kind === "holiday" && <div className="mx-auto max-w-[68px] truncate text-[10px] font-medium normal-case tracking-normal text-accent">{off.name}</div>}
+                    </th>
+                  );
+                })}
                 <th className="w-[96px] px-4 py-2.5 text-right">Total</th>
               </tr>
             </thead>

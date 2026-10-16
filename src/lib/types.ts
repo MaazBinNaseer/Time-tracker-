@@ -58,6 +58,14 @@ export interface WorkType {
 export interface Settings {
   /** Warn when a running timer passes this many hours (0 = never). Default 10. */
   longTimerHours?: number;
+  /** Days you normally work, 0 = Sunday ... 6 = Saturday. Default Monday to Friday. */
+  workDays?: number[];
+  /** Normal hours per work day, for "expected hours". Default 8. */
+  hoursPerDay?: number;
+  /** Mark US federal holidays as days off. */
+  federalHolidays?: boolean;
+  /** Your own days off (company holidays, vacation), as "YYYY-MM-DD". */
+  holidays?: { date: string; name: string }[];
 }
 
 export const emptyData = (): AppData => ({

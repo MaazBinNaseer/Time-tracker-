@@ -1,5 +1,6 @@
 "use client";
 
+import { dayKind, expected } from "@/lib/workdays";
 import { RichText } from "@/components/RichText";
 import { toPlain } from "@/lib/richtext";
 import { useEffect, useMemo, useState } from "react";
@@ -119,6 +120,13 @@ export default function ReportsPage() {
   }, [data.entries, now, from, to, project]);
 
   const lastDay = addDays(to, -1);
+  // Expected hours and holidays for the period, from Settings > Work week & holidays.
+  const target = expected(from, to, data.settings);
+  const holidaysInPeriod: { day: string; name: string }[] = [];
+  for (let d = new Date(from); d < to; d = addDays(d, 1)) {
+    const off = dayKind(d, data.settings);
+    if (off.kind === "holiday") holidaysInPeriod.push({ day: dayKey(d), name: off.name! });
+  }
   const periodText = dayKey(from) === dayKey(lastDay) ? longDate(from) : `${shortDate(from)} – ${shortDate(lastDay)}`;
   const projectLabel = (pid: string | null) => {
     const p = projectById(pid);
@@ -237,11 +245,18 @@ export default function ReportsPage() {
         ) : (
           <>
             <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="Total time" value={hours(report.total)} />
+              <Stat label="Total time" value={hours(report.total)} hint={target.days ? `${hours(target.ms)} expected` : undefined} />
               <Stat label="Billable" value={hours(report.billable)} hint={report.total ? `${Math.round((report.billable / report.total) * 100)}% of total` : undefined} />
-              <Stat label="Days worked" value={String(report.days.length)} />
+              <Stat label="Days worked" value={String(report.days.length)} hint={`${target.days} work ${target.days === 1 ? "day" : "days"} in period`} />
               <Stat label="Projects" value={String(report.projects.length)} />
             </section>
+
+            {holidaysInPeriod.length > 0 && (
+              <p className="mt-3 text-sm text-[#5b5670]">
+                <span className="font-semibold text-[#1c1a24]">Holidays in this period:</span>{" "}
+                {holidaysInPeriod.map((h) => `${h.name} (${parseDayKey(h.day).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })})`).join(" · ")}
+              </p>
+            )}
 
             <section className="mt-6 break-inside-avoid">
               <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#5b5670]">Summary by project</h3>
@@ -285,7 +300,13 @@ export default function ReportsPage() {
                   <div key={d.day}>
                     {/* Day header, then the day's split by project (one line each), then the sessions. */}
                     <div className="flex break-after-avoid items-baseline justify-between border-b-2 border-[#1c1a24] pb-1">
-                      <span className="text-[15px] font-bold">{longDate(parseDayKey(d.day))}</span>
+                      <span className="text-[15px] font-bold">
+                        {longDate(parseDayKey(d.day))}
+                        {(() => {
+                          const off = dayKind(parseDayKey(d.day), data.settings);
+                          return off.kind === "work" ? null : <span className="ml-2 text-xs font-medium text-[#6d28d9]">{off.kind === "holiday" ? `Holiday: ${off.name}` : "Day off"}</span>;
+                        })()}
+                      </span>
                       <span className="tabular whitespace-nowrap text-[15px] font-bold">{hours(d.ms)}</span>
                     </div>
                     <div className="mt-1.5 flex break-after-avoid flex-wrap gap-x-4 gap-y-1 text-xs text-[#5b5670]">

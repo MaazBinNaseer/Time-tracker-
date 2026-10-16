@@ -1,5 +1,6 @@
 "use client";
 
+import { dayKind } from "@/lib/workdays";
 import { useMemo } from "react";
 import { Kpi } from "@/components/Kpi";
 import { ProjectDot } from "@/components/ProjectPicker";
@@ -55,16 +56,19 @@ export function MonthView({ month, onPickDay }: { month: Date; onPickDay: (d: Da
               const inMonth = d.getMonth() === month.getMonth();
               const projects = [...(stats.byDay.get(k) ?? new Map<string | null, number>()).entries()].filter(([, ms]) => ms > 0).sort((a, b) => b[1] - a[1]);
               const dayTotal = projects.reduce((s, [, ms]) => s + ms, 0);
+              const off = dayKind(d, data.settings);
               return (
                 <button
                   key={k}
                   onClick={() => onPickDay(d)}
-                  className={`relative flex min-h-[112px] flex-col gap-1 border-b border-border p-1.5 text-left transition hover:bg-surface-2/60 ${i % 7 ? "border-l" : ""} ${inMonth ? "" : "opacity-40"}`}
+                  className={`relative flex min-h-[112px] flex-col gap-1 border-b border-border p-1.5 text-left transition hover:bg-surface-2/60 ${i % 7 ? "border-l" : ""} ${inMonth ? "" : "opacity-40"} ${off.kind !== "work" ? "day-off" : ""}`}
+                  title={off.name}
                 >
                   <div className="flex items-center justify-between px-1">
                     <span className={`grid h-6 min-w-6 place-items-center rounded-full text-xs font-semibold ${k === todayKey ? "bg-accent px-1.5 text-white dark:text-[#140f1f]" : ""}`}>{d.getDate()}</span>
                     {dayTotal > 0 && <span className="tabular text-xs font-semibold">{formatHM(dayTotal)}</span>}
                   </div>
+                  {off.kind === "holiday" && <div className="truncate px-1 text-[11px] font-medium text-accent">{off.name}</div>}
                   {dayTotal > 0 && (
                     // Bar length shows how full the day was compared with your longest day.
                     <div className="mx-1 h-1 rounded-full bg-surface-2">
