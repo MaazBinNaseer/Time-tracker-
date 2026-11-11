@@ -210,7 +210,7 @@ export default function ReportsPage() {
           </select>
           <label className="flex items-center gap-2">
             Prepared by
-            <input className="input w-40 py-1.5" value={prefs.name} onChange={(e) => change({ name: e.target.value })} placeholder="Your name" />
+            <input className="input w-40 py-1.5" value={prefs.name} onChange={(e) => change({ name: e.target.value })} placeholder="Your name" aria-label="Prepared by name" />
           </label>
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={prefs.times} onChange={(e) => change({ times: e.target.checked })} /> Start and end times</label>
           <label className="flex items-center gap-1.5"><input type="checkbox" checked={prefs.decimals} onChange={(e) => change({ decimals: e.target.checked })} /> Hours as decimals (4.50 h)</label>
@@ -235,7 +235,14 @@ export default function ReportsPage() {
             {project !== "all" && <p className="text-sm text-[#5b5670]">Project: {project === "none" ? "No project" : projectLabel(project)}</p>}
           </div>
           <div className="text-right text-sm text-[#5b5670]">
-            {prefs.name && <div>Prepared by <span className="font-semibold text-[#1c1a24]">{prefs.name}</span></div>}
+            {/* Click the name to change it; in the PDF it prints as plain text (or not at all when empty). */}
+            <label className={`flex items-center justify-end gap-1 ${prefs.name ? "" : "print:hidden"}`}>
+              Prepared by
+              <input value={prefs.name} onChange={(e) => change({ name: e.target.value })} placeholder="Your name" aria-label="Prepared by"
+                size={Math.max(prefs.name.length, 9)}
+                className="rounded border border-dashed border-[#c9c3d9] bg-transparent px-1 text-right font-semibold text-[#1c1a24] outline-none hover:border-[#6d28d9] focus:border-solid focus:border-[#6d28d9] print:hidden" />
+              <span className="hidden font-semibold text-[#1c1a24] print:inline">{prefs.name}</span>
+            </label>
             <div>Generated {shortDate(now)}</div>
           </div>
         </header>
