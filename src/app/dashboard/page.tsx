@@ -1,45 +1,60 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useNow, useStore } from "@/components/StoreProvider";
 import { ProjectDot } from "@/components/ProjectPicker";
 import { addDays, dayKey, formatHM, formatHours, parseDayKey, rangeStats, startOfDay, startOfWeek, toSegments } from "@/lib/time";
 import { entryTypeId, NO_PROJECT_COLOR, workTypesOf, type AppData, type Project } from "@/lib/types";
 
-type RangeKey = "week" | "7d" | "30d" | "month";
+type RangeKey = "week" | "pickWeek" | "7d" | "month" | "pickMonth";
 const RANGES: { key: RangeKey; label: string }[] = [
   { key: "week", label: "This week" },
+  { key: "pickWeek", label: "Pick a week" },
   { key: "7d", label: "Last 7 days" },
-  { key: "30d", label: "Last 30 days" },
   { key: "month", label: "This month" },
+  { key: "pickMonth", label: "Pick a month" },
 ];
+const MONTHS = Array.from({ length: 12 }, (_, m) => new Date(2000, m, 1).toLocaleDateString([], { month: "long" }));
 const MAX_SERIES = 7; // more projects than this fold into "Other" so colours stay readable
 const OTHER = "__other";
 
-function rangeFor(key: RangeKey, now: Date): [Date, Date] {
+/** week: Monday of the picked week. month: first day of the picked month. */
+function rangeFor(key: RangeKey, now: Date, week: Date, month: Date): [Date, Date] {
   const tomorrow = addDays(startOfDay(now), 1);
   switch (key) {
     case "week": {
       const s = startOfWeek(now);
       return [s, addDays(s, 7)];
     }
+    case "pickWeek":
+      return [week, addDays(week, 7)];
     case "7d":
       return [addDays(tomorrow, -7), tomorrow];
-    case "30d":
-      return [addDays(tomorrow, -30), tomorrow];
     case "month":
       return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 1)];
+    case "pickMonth":
+      return [month, new Date(month.getFullYear(), month.getMonth() + 1, 1)];
   }
 }
+
+const shortDay = (d: Date) => d.toLocaleDateString([], { day: "numeric", month: "short" });
 
 export default function DashboardPage() {
   const { data, projectById } = useStore();
   const now = useNow(30_000);
   const [range, setRange] = useState<RangeKey>("week");
+  // The picked week and month start on last week and last month, the usual ones to look back at.
+  const [week, setWeek] = useState(() => addDays(startOfWeek(new Date()), -7));
+  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
+  const thisWeek = startOfWeek(now);
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const firstYear = Math.min(now.getFullYear(), ...data.entries.map((e) => new Date(e.start).getFullYear()));
+  const years = Array.from({ length: now.getFullYear() - firstYear + 1 }, (_, i) => now.getFullYear() - i);
 
   const view = useMemo(() => {
-    const [from, to] = rangeFor(range, now);
+    const [from, to] = rangeFor(range, now, week, month);
     const stats = rangeStats(data.entries, from, to, now);
     const ranked = [...stats.byProject.entries()].sort((a, b) => b[1] - a[1]);
     const series = ranked.slice(0, MAX_SERIES).map(([id, ms]) => {
@@ -67,7 +82,7 @@ export default function DashboardPage() {
     const activeDays = daily.filter((d) => (d.total as number) > 0).length;
     const hours = stats.byHour.map((ms, h) => ({ h, hours: ms / 3_600_000 }));
     return { stats, series, daily, activeDays, hours, ranked };
-  }, [data.entries, range, now, projectById]);
+  }, [data.entries, range, now, week, month, projectById]);
 
   const { stats, series, daily, activeDays, hours } = view;
   const top = series[0];
@@ -80,16 +95,44 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-muted">Where your time went. Multiple sessions on a project count as one daily total.</p>
         </div>
-        <div className="flex rounded-xl border border-border bg-surface p-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${range === r.key ? "bg-accent text-white dark:text-[#140f1f]" : "text-muted hover:text-text"}`}
-            >
-              {r.label}
-            </button>
-          ))}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap rounded-xl border border-border bg-surface p-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setRange(r.key)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${range === r.key ? "bg-accent text-white dark:text-[#140f1f]" : "text-muted hover:text-text"}`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          {range === "pickWeek" && (
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1 text-sm">
+              <button className="btn-ghost p-1.5" onClick={() => setWeek(addDays(week, -7))} aria-label="Previous week"><ChevronLeft size={16} /></button>
+              <span className="min-w-[150px] text-center font-medium tabular">
+                {shortDay(week)} – {shortDay(addDays(week, 6))}, {addDays(week, 6).getFullYear()}
+              </span>
+              <button className="btn-ghost p-1.5" onClick={() => setWeek(addDays(week, 7))} disabled={week >= thisWeek} aria-label="Next week"><ChevronRight size={16} /></button>
+              <label className="ml-1 flex items-center gap-1.5 text-muted">
+                or the week of
+                <input type="date" className="input py-1" aria-label="Any day in the week" value={dayKey(week)}
+                  onChange={(e) => e.target.value && setWeek(startOfWeek(parseDayKey(e.target.value)))} />
+              </label>
+            </div>
+          )}
+          {range === "pickMonth" && (
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1 text-sm">
+              <button className="btn-ghost p-1.5" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button>
+              <select className="input py-1" aria-label="Month" value={month.getMonth()} onChange={(e) => setMonth(new Date(month.getFullYear(), Number(e.target.value), 1))}>
+                {MONTHS.map((name, m) => <option key={m} value={m}>{name}</option>)}
+              </select>
+              <select className="input py-1" aria-label="Year" value={month.getFullYear()} onChange={(e) => setMonth(new Date(Number(e.target.value), month.getMonth(), 1))}>
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <button className="btn-ghost p-1.5" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} disabled={month >= thisMonth} aria-label="Next month"><ChevronRight size={16} /></button>
+            </div>
+          )}
         </div>
       </div>
 
